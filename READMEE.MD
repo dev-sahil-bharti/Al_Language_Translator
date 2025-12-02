@@ -35,25 +35,7 @@ Built with **FastAPI (Backend)** + **React + TailwindCSS (Frontend)** + **Huggin
 ---
 
 ##  Project Architecture
-AI-Translator/
-│
-├── backend/ # FastAPI Code
-│ ├── main.py
-│ ├── requirements.txt
-│ └── README.md (API docs)
-│
-├── frontend/ # React App
-│ ├── src/
-│ │ ├── components/Navbar.jsx
-│ │ ├── pages/Translate.jsx
-│ │ ├── App.jsx
-│ │ ├── index.js
-│ │ └── index.css
-│ ├── package.json
-│ └── README.md (UI usage)
-│
-└── README.md # This file
-
+ ![alt text](image.png)
 
 
 ---
