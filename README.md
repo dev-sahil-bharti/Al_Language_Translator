@@ -1,3 +1,5 @@
+# Demo 
+![alt text](demo.png)
 #  AI Language Translator | FastAPI + React
 
 An AI-powered multilingual text translation web application that translates text between 8+ international languages in real time.  
