@@ -1,12 +1,16 @@
-# first step
-# !pip install fastapi uvicorn pyngrok transformers sentencepiece torch
-
-# second step
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from transformers import MarianMTModel, MarianTokenizer
-import torch
+import uvicorn
+
+# Try to import ML libraries
+try:
+    from transformers import MarianMTModel, MarianTokenizer
+    import torch
+    ML_AVAILABLE = True
+except ImportError:
+    ML_AVAILABLE = False
+    print("Warning: ML libraries not found. Running in mock mode.")
 
 app = FastAPI()
 
@@ -51,10 +55,13 @@ class TranslateRequest(BaseModel):
 
 # Translation function
 def translate_text(text, src_lang="en", tgt_lang="hi"):
+    if not ML_AVAILABLE:
+        return f"[MOCK TRANSLATION] {text} ({src_lang}->{tgt_lang}) - Install dependencies for real translation."
+
     pair = (src_lang, tgt_lang)
 
     if pair not in SUPPORTED_MODELS:
-        return f"Sorry! Translation {src_lang} → {tgt_lang} not supported yet."
+        return f"Sorry! Translation {src_lang} -> {tgt_lang} not supported yet."
 
     model_name = SUPPORTED_MODELS[pair]
 
@@ -77,18 +84,12 @@ def translate_route(req: TranslateRequest):
     )
     return {"translated_text": translated_output}
 
-
-# third step
-# !pip install fastapi uvicorn pyngrok transformers sentencepiece torch
-
-# fourth step 
-# !nohup uvicorn main:app --host 0.0.0.0 --port 8000 --reload &
-
-# fifth step
-from pyngrok import ngrok
-
-ngrok.set_auth_token("Your ngrok API")
-
-public_url = ngrok.connect(8000)
-public_url
-
+if __name__ == "__main__":
+    # Run the server
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+    
+    # Note: To use ngrok, you need to set your auth token.
+    # from pyngrok import ngrok
+    # ngrok.set_auth_token("Your ngrok API")
+    # public_url = ngrok.connect(8000)
+    # print(public_url)
