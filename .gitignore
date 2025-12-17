@@ -10,7 +10,9 @@ venv/
 dist/
 build/
 *.egg-info/
-
+venv/
+backend/venv/
+__pycache__/
 # Node
 node_modules/
 dist/
