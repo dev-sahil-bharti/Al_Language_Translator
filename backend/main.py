@@ -53,6 +53,10 @@ class TranslateRequest(BaseModel):
     source_lang: str
     target_lang: str
 
+# Model Cache
+MODEL_CACHE = {}
+TOKENIZER_CACHE = {}
+
 # Translation function
 def translate_text(text, src_lang="en", tgt_lang="hi"):
     if not ML_AVAILABLE:
@@ -61,12 +65,26 @@ def translate_text(text, src_lang="en", tgt_lang="hi"):
     pair = (src_lang, tgt_lang)
 
     if pair not in SUPPORTED_MODELS:
-        return f"Sorry! Translation {src_lang} -> {tgt_lang} not supported yet."
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=f"Translation {src_lang} -> {tgt_lang} not supported yet.")
 
     model_name = SUPPORTED_MODELS[pair]
 
-    tokenizer = MarianTokenizer.from_pretrained(model_name)
-    model = MarianMTModel.from_pretrained(model_name)
+    # Load from cache or download
+    if model_name in MODEL_CACHE:
+        tokenizer = TOKENIZER_CACHE[model_name]
+        model = MODEL_CACHE[model_name]
+    else:
+        print(f"Loading model {model_name}...")
+        try:
+            tokenizer = MarianTokenizer.from_pretrained(model_name)
+            model = MarianMTModel.from_pretrained(model_name)
+            TOKENIZER_CACHE[model_name] = tokenizer
+            MODEL_CACHE[model_name] = model
+        except Exception as e:
+            print(f"Error loading model {model_name}: {e}")
+            from fastapi import HTTPException
+            raise HTTPException(status_code=500, detail="Failed to load translation model.")
 
     input_tokens = tokenizer(text, return_tensors="pt", padding=True)
 

@@ -7,7 +7,7 @@ const Translate = () => {
   const [targetLang, setTargetLang] = useState("hi");
   const [loading, setLoading] = useState(false);
 
-  const API_URL = "http://localhost:8000/translate"; // Local backend URL
+  const API_URL = "http://127.0.0.1:8000/translate"; // Local backend URL
 
   const languageOptions = [
     { code: "en", label: "English" },
