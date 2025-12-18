@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+import os
 
 # Try to import ML libraries
 try:
@@ -25,26 +26,34 @@ app.add_middleware(
 
 # Supported models
 SUPPORTED_MODELS = {
+    # Direct pairs (MarianMT)
     ("en", "hi"): "Helsinki-NLP/opus-mt-en-hi",
     ("hi", "en"): "Helsinki-NLP/opus-mt-hi-en",
-
     ("en", "bn"): "Helsinki-NLP/opus-mt-en-bn",
     ("bn", "en"): "Helsinki-NLP/opus-mt-bn-en",
-
     ("en", "es"): "Helsinki-NLP/opus-mt-en-es",
     ("es", "en"): "Helsinki-NLP/opus-mt-es-en",
-
     ("en", "fr"): "Helsinki-NLP/opus-mt-en-fr",
     ("fr", "en"): "Helsinki-NLP/opus-mt-fr-en",
-
     ("en", "de"): "Helsinki-NLP/opus-mt-en-de",
     ("de", "en"): "Helsinki-NLP/opus-mt-de-en",
-
     ("en", "ar"): "Helsinki-NLP/opus-mt-en-ar",
     ("ar", "en"): "Helsinki-NLP/opus-mt-ar-en",
-
     ("en", "zh"): "Helsinki-NLP/opus-mt-en-zh",
     ("zh", "en"): "Helsinki-NLP/opus-mt-zh-en",
+    
+    # New Languages
+    ("en", "it"): "Helsinki-NLP/opus-mt-en-it",
+    ("it", "en"): "Helsinki-NLP/opus-mt-it-en",
+    ("en", "pt"): "Helsinki-NLP/opus-mt-en-pt",
+    ("pt", "en"): "Helsinki-NLP/opus-mt-pt-en",
+    ("en", "ru"): "Helsinki-NLP/opus-mt-en-ru",
+    ("ru", "en"): "Helsinki-NLP/opus-mt-ru-en",
+    ("en", "ja"): "Helsinki-NLP/opus-mt-en-jap", # Note: model name is 'jap' not 'ja' sometimes, checking widely used one. 
+    ("ja", "en"): "Helsinki-NLP/opus-mt-jap-en",
+    
+    # Hinglish (T5)
+    ("hinglish", "en"): "iPr0x/hinglish-to-english",
 }
 
 # Request model
@@ -64,35 +73,58 @@ def translate_text(text, src_lang="en", tgt_lang="hi"):
 
     pair = (src_lang, tgt_lang)
 
-    if pair not in SUPPORTED_MODELS:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail=f"Translation {src_lang} -> {tgt_lang} not supported yet.")
+    # 1. Direct Translation
+    if pair in SUPPORTED_MODELS:
+        model_name = SUPPORTED_MODELS[pair]
+        
+        # Load from cache or download
+        if model_name in MODEL_CACHE:
+            tokenizer = TOKENIZER_CACHE[model_name]
+            model = MODEL_CACHE[model_name]
+        else:
+            print(f"Loading model {model_name}...")
+            try:
+                if "hinglish" in model_name:
+                    from transformers import T5ForConditionalGeneration, T5Tokenizer
+                    tokenizer = T5Tokenizer.from_pretrained(model_name)
+                    model = T5ForConditionalGeneration.from_pretrained(model_name)
+                else:
+                    tokenizer = MarianTokenizer.from_pretrained(model_name)
+                    model = MarianMTModel.from_pretrained(model_name)
+                
+                TOKENIZER_CACHE[model_name] = tokenizer
+                MODEL_CACHE[model_name] = model
+            except Exception as e:
+                print(f"Error loading model {model_name}: {e}")
+                from fastapi import HTTPException
+                raise HTTPException(status_code=500, detail="Failed to load translation model.")
 
-    model_name = SUPPORTED_MODELS[pair]
+        input_tokens = tokenizer(text, return_tensors="pt", padding=True)
+        with torch.no_grad():
+            output_tokens = model.generate(**input_tokens)
+        
+        result = tokenizer.decode(output_tokens[0], skip_special_tokens=True)
+        return result
 
-    # Load from cache or download
-    if model_name in MODEL_CACHE:
-        tokenizer = TOKENIZER_CACHE[model_name]
-        model = MODEL_CACHE[model_name]
-    else:
-        print(f"Loading model {model_name}...")
-        try:
-            tokenizer = MarianTokenizer.from_pretrained(model_name)
-            model = MarianMTModel.from_pretrained(model_name)
-            TOKENIZER_CACHE[model_name] = tokenizer
-            MODEL_CACHE[model_name] = model
-        except Exception as e:
-            print(f"Error loading model {model_name}: {e}")
-            from fastapi import HTTPException
-            raise HTTPException(status_code=500, detail="Failed to load translation model.")
-
-    input_tokens = tokenizer(text, return_tensors="pt", padding=True)
-
-    with torch.no_grad():
-        output_tokens = model.generate(**input_tokens)
-
-    result = tokenizer.decode(output_tokens[0], skip_special_tokens=True)
-    return result
+    # 2. Pivot Translation (via English)
+    # Check if we can go src -> en -> tgt
+    if src_lang != "en" and tgt_lang != "en":
+        # Check if src->en and en->tgt exist
+        # Special case: Hinglish is supported as source "hinglish" -> "en"
+        # So it should be covered here if logic checks keys
+        
+        step1_pair = (src_lang, "en")
+        step2_pair = ("en", tgt_lang)
+        
+        if step1_pair in SUPPORTED_MODELS and step2_pair in SUPPORTED_MODELS:
+            print(f"Pivoting: {src_lang} -> en -> {tgt_lang}")
+            intermediate_text = translate_text(text, src_lang, "en")
+            final_text = translate_text(intermediate_text, "en", tgt_lang)
+            return final_text
+            
+    # If we get here, it's not supported
+    from fastapi import HTTPException
+    raise HTTPException(status_code=400, detail=f"Translation {src_lang} -> {tgt_lang} not supported yet.")
 
 # Route
 @app.post("/translate")
@@ -104,10 +136,5 @@ def translate_route(req: TranslateRequest):
 
 if __name__ == "__main__":
     # Run the server
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-    
-    # Note: To use ngrok, you need to set your auth token.
-    # from pyngrok import ngrok
-    # ngrok.set_auth_token("Your ngrok API")
-    # public_url = ngrok.connect(8000)
-    # print(public_url)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

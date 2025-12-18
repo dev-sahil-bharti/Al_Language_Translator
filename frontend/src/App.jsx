@@ -10,6 +10,7 @@ function App() {
         <Navbar />
         <Routes>
           <Route path="/" element={<Translate />} />
+          <Route path="*" element={<Translate />} />
         </Routes>
       </Router>
     </>
