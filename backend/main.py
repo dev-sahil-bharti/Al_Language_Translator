@@ -126,6 +126,11 @@ def translate_text(text, src_lang="en", tgt_lang="hi"):
     from fastapi import HTTPException
     raise HTTPException(status_code=400, detail=f"Translation {src_lang} -> {tgt_lang} not supported yet.")
 
+# Root / Health Check
+@app.get("/")
+def read_root():
+    return {"status": "ok", "message": "Language Translator Backend is running"}
+
 # Route
 @app.post("/translate")
 def translate_route(req: TranslateRequest):

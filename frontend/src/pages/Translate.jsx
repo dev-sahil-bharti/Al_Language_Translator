@@ -7,7 +7,7 @@ const Translate = () => {
   const [targetLang, setTargetLang] = useState("hi");
   const [loading, setLoading] = useState(false);
 
-  const API_URL = "https://al-language-translator-3backend1.onrender.com"; // Local backend URL
+  const API_URL = "https://al-language-translator-3backend1.onrender.com/translate"; // Render backend URL
 
   const languageOptions = [
     { code: "en", label: "English" },
