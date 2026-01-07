@@ -7,7 +7,8 @@ const Translate = () => {
   const [targetLang, setTargetLang] = useState("hi");
   const [loading, setLoading] = useState(false);
 
-  const API_URL = "https://al-language-translator-3backend1.onrender.com/translate"; // Render backend URL
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "https://al-language-translator-3backend1.onrender.com";
+  const API_URL = `${BACKEND_URL}/translate`;
 
   const languageOptions = [
     { code: "en", label: "English" },
